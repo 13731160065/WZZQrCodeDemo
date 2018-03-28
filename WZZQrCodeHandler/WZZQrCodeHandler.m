@@ -25,7 +25,7 @@
     [filter setValue:data forKey:@"inputMessage"];
     CIImage * outCIImage = [filter outputImage];
 //    UIImage * outImage = [UIImage imageWithCIImage:outCIImage];
-    NSString * outImage = [self _createUIImageFormCIImage:outCIImage withSize:300];
+    UIImage * outImage = [self _createUIImageFormCIImage:outCIImage withSize:300];
     
     if (logo) {
         //添加logo
@@ -51,8 +51,13 @@
 + (UIImage *)remixImage:(UIImage *)image
             toBackImage:(UIImage *)backImage
            frameOfImage:(CGRect(^)(CGSize))frameBlock {
+    CGSize backSize = CGSizeMake(backImage.size.width, backImage.size.height);
+    //    if (backSize.width > 500) {
+    backSize.height = 500/backSize.width*backSize.height;
+    backSize.width = 500;
+    //    }
     //背景
-    UIView * backView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, backImage.size.width, backImage.size.height)];
+    UIView * backView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, backSize.width, backSize.height)];
     
     //底图
     UIImageView * imageV = [[UIImageView alloc] initWithFrame:backView.bounds];
@@ -99,7 +104,7 @@
  */
 + (UIImage *)_remixImageWithImageView:(UIView *)remixImageView {
     //截取图片
-    UIGraphicsBeginImageContextWithOptions(remixImageView.frame.size, NO, 1.0f);
+    UIGraphicsBeginImageContextWithOptions(remixImageView.frame.size, NO, 10.0f);
     CGContextRef ctx = UIGraphicsGetCurrentContext();
     [remixImageView.layer renderInContext:ctx];
     UIImage *imgDraw = UIGraphicsGetImageFromCurrentImageContext();
