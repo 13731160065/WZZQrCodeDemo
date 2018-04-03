@@ -7,6 +7,20 @@
 //
 
 #import "WZZQrCodeHandler.h"
+@import AVFoundation;
+
+static WZZQrCodeHandler * wzzQrCodeHandler;
+
+@interface WZZQrCodeHandler ()<AVCaptureMetadataOutputObjectsDelegate> {
+    AVCaptureDevice * c_device;
+    AVCaptureInput * c_input;
+    AVCaptureMetadataOutput * c_output;
+    AVCaptureSession * c_session;
+    AVCaptureVideoPreviewLayer * c_layer;
+    void(^c_scanqrBlock)(NSString *);
+}
+
+@end
 
 @implementation WZZQrCodeHandler
 
@@ -74,6 +88,92 @@
     
     UIImage * outImage = [self _remixImageWithImageView:backView];
     return outImage;
+}
+
++ (NSString *)scanQrCodeWithImage:(UIImage *)qrCode {
+    NSData *data = UIImagePNGRepresentation(qrCode);
+    CIImage *ciimage = [CIImage imageWithData:data];
+    if (ciimage) {
+        CIDetector *qrDetector = [CIDetector detectorOfType:CIDetectorTypeQRCode context:[CIContext contextWithOptions:@{kCIContextUseSoftwareRenderer:@(YES)}] options:@{CIDetectorAccuracy : CIDetectorAccuracyHigh}];
+        NSArray *resultArr = [qrDetector featuresInImage:ciimage];
+        if (resultArr.count >0) {
+            CIFeature *feature = resultArr[0];
+            CIQRCodeFeature *qrFeature = (CIQRCodeFeature *)feature;
+            NSString *result = qrFeature.messageString;
+            
+            return result;
+        }else{
+            return nil;
+        }
+    }else{
+        return nil;
+    }
+}
+
++ (UIView *)scanQrCodeWithFrame:(CGRect)frame successBlock:(void (^)(NSString *))codeBlock {
+    wzzQrCodeHandler = [[WZZQrCodeHandler alloc] init];
+    // Device
+    wzzQrCodeHandler->c_device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    // Input
+    wzzQrCodeHandler->c_input = [AVCaptureDeviceInput deviceInputWithDevice:wzzQrCodeHandler->c_device error:nil];
+    // Output
+    wzzQrCodeHandler->c_output = [[AVCaptureMetadataOutput alloc]init];
+
+    [wzzQrCodeHandler->c_output setMetadataObjectsDelegate:wzzQrCodeHandler queue:dispatch_get_main_queue()];
+    // Session
+    wzzQrCodeHandler->c_session = [[AVCaptureSession alloc]init];
+    [wzzQrCodeHandler->c_session setSessionPreset:AVCaptureSessionPresetHigh];
+    
+    //链接输入输出
+    if ([wzzQrCodeHandler->c_session canAddInput:wzzQrCodeHandler->c_input])
+    {
+        [wzzQrCodeHandler->c_session addInput:wzzQrCodeHandler->c_input];
+    }
+    if ([wzzQrCodeHandler->c_session canAddOutput:wzzQrCodeHandler->c_output])
+    {
+        [wzzQrCodeHandler->c_session addOutput:wzzQrCodeHandler->c_output];
+    }
+    
+    //设置条码类型
+    wzzQrCodeHandler->c_output.metadataObjectTypes =@[AVMetadataObjectTypeQRCode];
+    
+    //添加layer
+    UIView * outView = [[UIView alloc] initWithFrame:frame];
+    wzzQrCodeHandler->c_layer = [AVCaptureVideoPreviewLayer layerWithSession:wzzQrCodeHandler->c_session];
+    wzzQrCodeHandler->c_layer.videoGravity =AVLayerVideoGravityResizeAspectFill;
+    wzzQrCodeHandler->c_layer.frame = outView.layer.bounds;
+    [outView.layer insertSublayer:wzzQrCodeHandler->c_layer atIndex:0];
+    [wzzQrCodeHandler->c_session startRunning];
+    
+    wzzQrCodeHandler->c_scanqrBlock = codeBlock;
+    return outView;
+}
+
+//停止扫描
++ (void)stopScanQrCode {
+    if (wzzQrCodeHandler) {
+        [wzzQrCodeHandler->c_session stopRunning];
+        wzzQrCodeHandler->c_scanqrBlock = nil;
+        wzzQrCodeHandler->c_layer = nil;
+        wzzQrCodeHandler->c_output = nil;
+        wzzQrCodeHandler->c_input = nil;
+        wzzQrCodeHandler->c_device = nil;
+        wzzQrCodeHandler->c_session = nil;
+        wzzQrCodeHandler = nil;
+    }
+}
+
+//二维码扫描回调
+- (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects fromConnection:(AVCaptureConnection *)connection {
+    if ([metadataObjects count] >0){
+        //停止扫描
+        AVMetadataMachineReadableCodeObject * metadataObject = metadataObjects[0];
+        NSString * stringValue = metadataObject.stringValue;
+        if (c_scanqrBlock) {
+            c_scanqrBlock(stringValue);
+        }
+        [WZZQrCodeHandler stopScanQrCode];
+    }
 }
 
 #pragma mark - 辅助方法
