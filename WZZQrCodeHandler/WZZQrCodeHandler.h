@@ -51,4 +51,24 @@
             toBackImage:(UIImage *)backImage
            frameOfImage:(CGRect(^)(CGSize upImageSize))frameBlock;
 
+/**
+ 自动识别
+
+ @param qrCode 二维码
+ */
++ (NSString *)scanQrCodeWithImage:(UIImage *)qrCode;
+
+/**
+ 自动扫描
+
+ @param codeBlock 扫描到信息
+ @return 扫描视图
+ */
++ (UIView *)scanQrCodeWithFrame:(CGRect)frame
+                   successBlock:(void(^)(NSString * codeStr))codeBlock;
+/**
+ 停止扫描
+ */
++ (void)stopScanQrCode;
+
 @end
